@@ -1,0 +1,85 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prompoc
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: resource-viewer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: prompoc
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pocpv
+  namespace: prompoc
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/data"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pocpvc
+  namespace: prompoc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prompoc
+  namespace: prompoc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prompoc
+  template:
+    metadata:
+      namespace: prompoc
+      labels:
+        app: prompoc
+    spec:
+      volumes:
+        - name: pocpv
+          persistentVolumeClaim:
+            claimName: pocpvc
+      containers:
+        - name: prompoc
+          image: sukhilsuresh/prompoc
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - mountPath: "/usr/prom"
+              name: pocpv
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prompoc
+  namespace: prompoc
+spec:
+  type: LoadBalancer
+  selector:
+    app: prompoc
+  ports:
+    - port: 8080
+      targetPort: 8080
